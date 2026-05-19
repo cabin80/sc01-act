@@ -1,0 +1,242 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<definitions xmlns="http://www.omg.org/spec/BPMN/20100524/MODEL"
+             xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+             xmlns:activiti="http://activiti.org/bpmn"
+             xmlns:bpmndi="http://www.omg.org/spec/BPMN/20100524/DI"
+             xmlns:omgdc="http://www.omg.org/spec/DD/20100524/DC"
+             xmlns:omgdi="http://www.omg.org/spec/BPMN/20100524/DI"
+             targetNamespace="http://activiti.org/bpmn"
+             typeLanguage="http://www.w3.org/2001/XMLSchema"
+             expressionLanguage="http://www.w3.org/1999/XPath">
+
+    <process id="productApproval" name="商品上线审批流程" isExecutable="true">
+
+        <!-- Start -->
+        <startEvent id="startEvent" name="开始" />
+
+        <!-- Operations Submit -->
+        <userTask id="submitTask" name="运营发布" activiti:assignee="operations" />
+
+        <!-- Supervisor Approval -->
+        <userTask id="supervisorTask" name="主管审批" activiti:assignee="supervisor" />
+
+        <!-- Supervisor Decision Gateway -->
+        <exclusiveGateway id="supervisorGate" name="主管决策路由" default="flowSupervisorApprove" />
+
+        <!-- Warehouse Confirmation -->
+        <userTask id="warehouseTask" name="库管确认" activiti:assignee="warehouse" />
+
+        <!-- Supervisor Final Decision (after warehouse) -->
+        <userTask id="supervisorFinalTask" name="主管复核" activiti:assignee="supervisor" />
+
+        <!-- Supervisor Final Decision Gateway -->
+        <exclusiveGateway id="supervisorFinalGate" name="主管复核路由" default="flowFinalApprove" />
+
+        <!-- Merge Gateway (join approve path and addSign-approve path) -->
+        <exclusiveGateway id="mergeGate" name="合并路由" />
+
+        <!-- Manager Approval -->
+        <userTask id="managerTask" name="经理审批" activiti:assignee="manager" />
+
+        <!-- Manager Decision Gateway -->
+        <exclusiveGateway id="managerGate" name="经理决策路由" default="flowManagerEnd" />
+
+        <!-- End -->
+        <endEvent id="endEvent" name="结束" />
+
+        <!-- Sequence Flows -->
+        <sequenceFlow id="flowStart" sourceRef="startEvent" targetRef="submitTask" />
+
+        <sequenceFlow id="flowToSupervisor" sourceRef="submitTask" targetRef="supervisorTask" />
+
+        <sequenceFlow id="flowSupervisorToGate" sourceRef="supervisorTask" targetRef="supervisorGate" />
+
+        <!-- Supervisor: approve → through merge to manager -->
+        <sequenceFlow id="flowSupervisorApprove" sourceRef="supervisorGate" targetRef="mergeGate">
+            <conditionExpression xsi:type="tFormalExpression">
+                <![CDATA[${supervisorAction == 'approve'}]]>
+            </conditionExpression>
+        </sequenceFlow>
+
+        <!-- Supervisor: reject → end -->
+        <sequenceFlow id="flowSupervisorReject" sourceRef="supervisorGate" targetRef="endEvent">
+            <conditionExpression xsi:type="tFormalExpression">
+                <![CDATA[${supervisorAction == 'reject'}]]>
+            </conditionExpression>
+        </sequenceFlow>
+
+        <!-- Supervisor: addSign → warehouse -->
+        <sequenceFlow id="flowSupervisorAddSign" sourceRef="supervisorGate" targetRef="warehouseTask">
+            <conditionExpression xsi:type="tFormalExpression">
+                <![CDATA[${supervisorAction == 'addSign'}]]>
+            </conditionExpression>
+        </sequenceFlow>
+
+        <sequenceFlow id="flowWarehouseToSupervisorFinal" sourceRef="warehouseTask" targetRef="supervisorFinalTask" />
+
+        <sequenceFlow id="flowFinalToGate" sourceRef="supervisorFinalTask" targetRef="supervisorFinalGate" />
+
+        <!-- Supervisor Final: approve → through merge to manager -->
+        <sequenceFlow id="flowFinalApprove" sourceRef="supervisorFinalGate" targetRef="mergeGate">
+            <conditionExpression xsi:type="tFormalExpression">
+                <![CDATA[${supervisorFinalAction == 'approve'}]]>
+            </conditionExpression>
+        </sequenceFlow>
+
+        <!-- Supervisor Final: reject → end -->
+        <sequenceFlow id="flowFinalReject" sourceRef="supervisorFinalGate" targetRef="endEvent">
+            <conditionExpression xsi:type="tFormalExpression">
+                <![CDATA[${supervisorFinalAction == 'reject'}]]>
+            </conditionExpression>
+        </sequenceFlow>
+
+        <sequenceFlow id="flowMergeToManager" sourceRef="mergeGate" targetRef="managerTask" />
+
+        <sequenceFlow id="flowManagerToGate" sourceRef="managerTask" targetRef="managerGate" />
+
+        <sequenceFlow id="flowManagerApprove" sourceRef="managerGate" targetRef="endEvent">
+            <conditionExpression xsi:type="tFormalExpression">
+                <![CDATA[${managerAction == 'approve'}]]>
+            </conditionExpression>
+        </sequenceFlow>
+
+        <sequenceFlow id="flowManagerReject" sourceRef="managerGate" targetRef="endEvent">
+            <conditionExpression xsi:type="tFormalExpression">
+                <![CDATA[${managerAction == 'reject'}]]>
+            </conditionExpression>
+        </sequenceFlow>
+
+        <sequenceFlow id="flowManagerEnd" sourceRef="managerGate" targetRef="endEvent" />
+
+    </process>
+
+    <bpmndi:BPMNDiagram id="BPMNDiagram_productApproval">
+        <bpmndi:BPMNPlane bpmnElement="productApproval" id="BPMNPlane_productApproval">
+
+            <bpmndi:BPMNShape id="shape-startEvent" bpmnElement="startEvent">
+                <omgdc:Bounds x="50" y="200" width="36" height="36" />
+            </bpmndi:BPMNShape>
+
+            <bpmndi:BPMNShape id="shape-submitTask" bpmnElement="submitTask">
+                <omgdc:Bounds x="150" y="175" width="120" height="80" />
+            </bpmndi:BPMNShape>
+
+            <bpmndi:BPMNShape id="shape-supervisorTask" bpmnElement="supervisorTask">
+                <omgdc:Bounds x="340" y="175" width="120" height="80" />
+            </bpmndi:BPMNShape>
+
+            <bpmndi:BPMNShape id="shape-supervisorGate" bpmnElement="supervisorGate">
+                <omgdc:Bounds x="520" y="188" width="40" height="40" />
+            </bpmndi:BPMNShape>
+
+            <bpmndi:BPMNShape id="shape-warehouseTask" bpmnElement="warehouseTask">
+                <omgdc:Bounds x="430" y="310" width="120" height="80" />
+            </bpmndi:BPMNShape>
+
+            <bpmndi:BPMNShape id="shape-supervisorFinalTask" bpmnElement="supervisorFinalTask">
+                <omgdc:Bounds x="620" y="310" width="120" height="80" />
+            </bpmndi:BPMNShape>
+
+            <bpmndi:BPMNShape id="shape-supervisorFinalGate" bpmnElement="supervisorFinalGate">
+                <omgdc:Bounds x="800" y="322" width="40" height="40" />
+            </bpmndi:BPMNShape>
+
+            <bpmndi:BPMNShape id="shape-mergeGate" bpmnElement="mergeGate">
+                <omgdc:Bounds x="620" y="78" width="40" height="40" />
+            </bpmndi:BPMNShape>
+
+            <bpmndi:BPMNShape id="shape-managerTask" bpmnElement="managerTask">
+                <omgdc:Bounds x="730" y="175" width="120" height="80" />
+            </bpmndi:BPMNShape>
+
+            <bpmndi:BPMNShape id="shape-managerGate" bpmnElement="managerGate">
+                <omgdc:Bounds x="910" y="188" width="40" height="40" />
+            </bpmndi:BPMNShape>
+
+            <bpmndi:BPMNShape id="shape-endEvent" bpmnElement="endEvent">
+                <omgdc:Bounds x="1020" y="195" width="36" height="36" />
+            </bpmndi:BPMNShape>
+
+            <!-- Edges -->
+            <bpmndi:BPMNEdge id="edge-start-submit" bpmnElement="flowStart">
+                <omgdi:waypoint x="86" y="218" />
+                <omgdi:waypoint x="150" y="215" />
+            </bpmndi:BPMNEdge>
+
+            <bpmndi:BPMNEdge id="edge-submit-supervisor" bpmnElement="flowToSupervisor">
+                <omgdi:waypoint x="270" y="215" />
+                <omgdi:waypoint x="340" y="215" />
+            </bpmndi:BPMNEdge>
+
+            <bpmndi:BPMNEdge id="edge-supervisor-gate" bpmnElement="flowSupervisorToGate">
+                <omgdi:waypoint x="460" y="215" />
+                <omgdi:waypoint x="520" y="208" />
+            </bpmndi:BPMNEdge>
+
+            <bpmndi:BPMNEdge id="edge-approve-merge" bpmnElement="flowSupervisorApprove">
+                <omgdi:waypoint x="540" y="188" />
+                <omgdi:waypoint x="540" y="98" />
+                <omgdi:waypoint x="620" y="98" />
+            </bpmndi:BPMNEdge>
+
+            <bpmndi:BPMNEdge id="edge-reject-end" bpmnElement="flowSupervisorReject">
+                <omgdi:waypoint x="560" y="208" />
+                <omgdi:waypoint x="1020" y="208" />
+                <omgdi:waypoint x="1020" y="195" />
+            </bpmndi:BPMNEdge>
+
+            <bpmndi:BPMNEdge id="edge-addsign-warehouse" bpmnElement="flowSupervisorAddSign">
+                <omgdi:waypoint x="540" y="228" />
+                <omgdi:waypoint x="540" y="350" />
+                <omgdi:waypoint x="430" y="350" />
+            </bpmndi:BPMNEdge>
+
+            <bpmndi:BPMNEdge id="edge-warehouse-final" bpmnElement="flowWarehouseToSupervisorFinal">
+                <omgdi:waypoint x="550" y="350" />
+                <omgdi:waypoint x="620" y="350" />
+            </bpmndi:BPMNEdge>
+
+            <bpmndi:BPMNEdge id="edge-final-gate" bpmnElement="flowFinalToGate">
+                <omgdi:waypoint x="740" y="350" />
+                <omgdi:waypoint x="800" y="342" />
+            </bpmndi:BPMNEdge>
+
+            <bpmndi:BPMNEdge id="edge-final-approve" bpmnElement="flowFinalApprove">
+                <omgdi:waypoint x="820" y="322" />
+                <omgdi:waypoint x="820" y="98" />
+                <omgdi:waypoint x="660" y="98" />
+            </bpmndi:BPMNEdge>
+
+            <bpmndi:BPMNEdge id="edge-final-reject" bpmnElement="flowFinalReject">
+                <omgdi:waypoint x="840" y="342" />
+                <omgdi:waypoint x="1020" y="342" />
+                <omgdi:waypoint x="1020" y="231" />
+            </bpmndi:BPMNEdge>
+
+            <bpmndi:BPMNEdge id="edge-merge-manager" bpmnElement="flowMergeToManager">
+                <omgdi:waypoint x="660" y="98" />
+                <omgdi:waypoint x="660" y="215" />
+                <omgdi:waypoint x="730" y="215" />
+            </bpmndi:BPMNEdge>
+
+            <bpmndi:BPMNEdge id="edge-manager-gate" bpmnElement="flowManagerToGate">
+                <omgdi:waypoint x="850" y="215" />
+                <omgdi:waypoint x="910" y="208" />
+            </bpmndi:BPMNEdge>
+
+            <bpmndi:BPMNEdge id="edge-manager-approve" bpmnElement="flowManagerApprove">
+                <omgdi:waypoint x="930" y="188" />
+                <omgdi:waypoint x="930" y="175" />
+                <omgdi:waypoint x="1020" y="195" />
+            </bpmndi:BPMNEdge>
+
+            <bpmndi:BPMNEdge id="edge-manager-reject" bpmnElement="flowManagerReject">
+                <omgdi:waypoint x="930" y="228" />
+                <omgdi:waypoint x="930" y="260" />
+                <omgdi:waypoint x="1020" y="260" />
+            </bpmndi:BPMNEdge>
+
+        </bpmndi:BPMNPlane>
+    </bpmndi:BPMNDiagram>
+
+</definitions>

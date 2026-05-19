@@ -1,0 +1,22 @@
+spring:
+  application:
+    name: sc01-act
+  datasource:
+    url: jdbc:h2:file:./data/sc01-act;DB_CLOSE_DELAY=-1
+    driver-class-name: org.h2.Driver
+    username: sa
+    password:
+  h2:
+    console:
+      enabled: true
+      path: /h2-console
+  activiti:
+    database-schema-update: true
+    history-level: full
+    db-history-used: true
+    process-definition-location-prefix: classpath:/processes/
+    check-process-definitions: true
+    async-executor-activate: false
+
+server:
+  port: 8091

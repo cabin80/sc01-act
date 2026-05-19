@@ -1,0 +1,639 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>商品上线审批系统</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif; background: #f0f2f5; color: #333; min-height: 100vh; }
+
+        /* Header */
+        .header { background: #fff; padding: 12px 24px; box-shadow: 0 1px 4px rgba(0,0,0,0.08); display: flex; align-items: center; justify-content: space-between; }
+        .header-left { display: flex; align-items: center; gap: 16px; }
+        .header-left h1 { font-size: 18px; color: #1a1a1a; white-space: nowrap; }
+        .header-right { display: flex; align-items: center; gap: 12px; }
+        .header-right label { font-size: 14px; color: #666; }
+        .header-right select { padding: 6px 12px; border: 1px solid #d9d9d9; border-radius: 4px; font-size: 14px; outline: none; background: #fff; cursor: pointer; }
+        .header-right select:focus { border-color: #1890ff; }
+        .header-right .btn-login { padding: 6px 20px; background: #1890ff; color: #fff; border: none; border-radius: 4px; cursor: pointer; font-size: 14px; }
+        .header-right .btn-login:hover { background: #40a9ff; }
+        .header-right .btn-login.logged-in { background: #52c41a; }
+        .header-right .role-badge { display: inline-block; padding: 2px 12px; border-radius: 10px; font-size: 13px; font-weight: 500; }
+        .badge-operations { background: #e6f7ff; color: #1890ff; border: 1px solid #91d5ff; }
+        .badge-supervisor { background: #fff7e6; color: #fa8c16; border: 1px solid #ffd591; }
+        .badge-warehouse { background: #f6ffed; color: #52c41a; border: 1px solid #b7eb8f; }
+        .badge-manager { background: #fff0f6; color: #eb2f96; border: 1px solid #ffadd2; }
+
+        /* Main container */
+        .container { max-width: 960px; margin: 20px auto; padding: 0 16px; }
+
+        /* Product Info Card */
+        .card { background: #fff; border-radius: 8px; box-shadow: 0 1px 4px rgba(0,0,0,0.06); margin-bottom: 16px; overflow: hidden; }
+        .card-header { padding: 14px 20px; border-bottom: 1px solid #f0f0f0; font-size: 15px; font-weight: 600; color: #1a1a1a; background: #fafafa; }
+        .card-body { padding: 16px 20px; }
+
+        .info-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px 24px; }
+        .info-row { display: flex; align-items: center; }
+        .info-label { font-size: 13px; color: #888; width: 80px; flex-shrink: 0; }
+        .info-value { font-size: 14px; color: #333; flex: 1; }
+        .info-value input { width: 100%; padding: 6px 10px; border: 1px solid #d9d9d9; border-radius: 4px; font-size: 14px; background: #f5f5f5; color: #333; cursor: not-allowed; }
+        .full-width { grid-column: 1 / -1; }
+
+        .status-bar { margin-top: 12px; padding: 8px 16px; border-radius: 4px; font-size: 14px; }
+        .status-running { background: #e6f7ff; border: 1px solid #91d5ff; color: #1890ff; }
+        .status-approved { background: #f6ffed; border: 1px solid #b7eb8f; color: #52c41a; }
+        .status-rejected { background: #fff2f0; border: 1px solid #ffccc7; color: #ff4d4f; }
+
+        /* Flow Diagram */
+        .flow-diagram { padding: 24px 0; display: flex; align-items: center; justify-content: center; flex-wrap: wrap; gap: 4px; }
+        .flow-node { display: inline-flex; align-items: center; justify-content: center; padding: 8px 16px; border: 2px solid #d9d9d9; border-radius: 6px; font-size: 13px; font-weight: 500; min-width: 80px; background: #fff; color: #999; position: relative; }
+        .flow-node.active { border-color: #1890ff; background: #e6f7ff; color: #1890ff; box-shadow: 0 0 0 3px rgba(24,144,255,0.15); }
+        .flow-node.completed { border-color: #52c41a; background: #f6ffed; color: #52c41a; }
+        .flow-node.rejected { border-color: #ff4d4f; background: #fff2f0; color: #ff4d4f; }
+        .flow-arrow { font-size: 16px; color: #d9d9d9; }
+        .flow-arrow.completed { color: #52c41a; }
+
+        /* Approval History */
+        .history-table { width: 100%; border-collapse: collapse; }
+        .history-table th { background: #fafafa; padding: 10px 12px; text-align: left; font-size: 13px; color: #666; border-bottom: 1px solid #f0f0f0; font-weight: 500; }
+        .history-table td { padding: 10px 12px; font-size: 14px; border-bottom: 1px solid #f0f0f0; }
+        .history-table tr:last-child td { border-bottom: none; }
+        .history-table tr:hover td { background: #fafafa; }
+
+        .action-tag { display: inline-block; padding: 1px 8px; border-radius: 3px; font-size: 12px; font-weight: 500; }
+        .action-approve { background: #f6ffed; color: #52c41a; border: 1px solid #b7eb8f; }
+        .action-reject { background: #fff2f0; color: #ff4d4f; border: 1px solid #ffccc7; }
+        .action-addsign { background: #fff7e6; color: #fa8c16; border: 1px solid #ffd591; }
+
+        /* Action Area */
+        .action-area { padding: 16px 20px; border-top: 1px solid #f0f0f0; }
+        .action-area textarea { width: 100%; min-height: 60px; padding: 8px 12px; border: 1px solid #d9d9d9; border-radius: 4px; font-size: 14px; resize: vertical; outline: none; }
+        .action-area textarea:focus { border-color: #1890ff; }
+        .action-buttons { display: flex; justify-content: flex-end; gap: 10px; margin-top: 12px; }
+        .action-buttons .btn { padding: 8px 24px; border: none; border-radius: 4px; font-size: 14px; cursor: pointer; font-weight: 500; }
+        .action-buttons .btn:hover { opacity: 0.85; }
+        .btn-approve { background: #1890ff; color: #fff; }
+        .btn-reject { background: #ff4d4f; color: #fff; }
+        .btn-warehouse { background: #fa8c16; color: #fff; }
+
+        /* Empty State */
+        .empty-state { text-align: center; padding: 40px 20px; color: #999; }
+        .empty-state .icon { font-size: 48px; margin-bottom: 12px; }
+        .empty-state p { font-size: 14px; }
+
+        /* Responsive */
+        @media (max-width: 640px) {
+            .header { flex-direction: column; gap: 10px; }
+            .header-left h1 { font-size: 16px; }
+            .info-grid { grid-template-columns: 1fr; }
+            .flow-diagram { flex-direction: column; }
+            .flow-arrow { transform: rotate(90deg); }
+        }
+
+        /* Toast */
+        .toast { position: fixed; top: 20px; right: 20px; padding: 12px 20px; border-radius: 6px; color: #fff; font-size: 14px; z-index: 9999; box-shadow: 0 4px 12px rgba(0,0,0,0.15); animation: slideIn 0.3s ease; }
+        .toast-success { background: #52c41a; }
+        .toast-error { background: #ff4d4f; }
+        .toast-info { background: #1890ff; }
+        @keyframes slideIn { from { transform: translateX(100px); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+
+        /* Start button card */
+        .start-section { text-align: center; padding: 30px 20px; }
+        .start-section .btn-start { padding: 10px 40px; background: #1890ff; color: #fff; border: none; border-radius: 6px; font-size: 16px; cursor: pointer; }
+        .start-section .btn-start:hover { background: #40a9ff; }
+        .start-section .btn-start:disabled { background: #d9d9d9; cursor: not-allowed; }
+        .start-section .tip { margin-top: 8px; font-size: 13px; color: #999; }
+    </style>
+</head>
+<body>
+
+<div class="header">
+    <div class="header-left">
+        <h1>📦 商品上线审批系统</h1>
+    </div>
+    <div class="header-right">
+        <label>角色选择：</label>
+        <select id="roleSelect">
+            <option value="operations">运营</option>
+            <option value="supervisor">主管</option>
+            <option value="warehouse">库管</option>
+            <option value="manager">经理</option>
+        </select>
+        <button class="btn-login" id="loginBtn" onclick="login()">登录</button>
+        <span id="roleBadge" style="display:none;"></span>
+    </div>
+</div>
+
+<div class="container" id="app">
+    <!-- Default: please login -->
+    <div class="card">
+        <div class="empty-state" id="welcomeScreen">
+            <div class="icon">👋</div>
+            <p>请选择角色并点击「登录」</p>
+            <p style="font-size:12px;margin-top:6px;color:#bbb;">每个浏览器标签页作为一个独立角色</p>
+        </div>
+    </div>
+
+    <!-- Process View (hidden by default) -->
+    <div id="processView" style="display:none;">
+
+        <!-- Start Process (for operations role) -->
+        <div class="card" id="startCard">
+            <div class="card-header">发起审批</div>
+            <div class="start-section">
+                <button class="btn-start" id="startBtn" onclick="startProcess()">🚀 发起商品上线审批</button>
+                <div class="tip">点击后开始一个新的商品上线审批流程</div>
+            </div>
+        </div>
+
+        <!-- Product Info -->
+        <div class="card" id="infoCard" style="display:none;">
+            <div class="card-header">📋 申请信息</div>
+            <div class="card-body">
+                <div class="info-grid">
+                    <div class="info-row">
+                        <span class="info-label">发起事由</span>
+                        <div class="info-value"><input id="fieldTitle" value="商品上线审批" readonly/></div>
+                    </div>
+                    <div class="info-row">
+                        <span class="info-label">商品名称</span>
+                        <div class="info-value"><input id="fieldName" value="iPhone 15 Pro 256G" readonly/></div>
+                    </div>
+                    <div class="info-row">
+                        <span class="info-label">商品描述</span>
+                        <div class="info-value"><input id="fieldDesc" value="新型手机上市，五一节活动款" readonly/></div>
+                    </div>
+                    <div class="info-row">
+                        <span class="info-label">商品价格</span>
+                        <div class="info-value"><input id="fieldPrice" value="5999元" readonly/></div>
+                    </div>
+                </div>
+                <div id="statusBar" class="status-bar status-running" style="display:none;"></div>
+            </div>
+        </div>
+
+        <!-- Flow Diagram -->
+        <div class="card" id="flowCard" style="display:none;">
+            <div class="card-header">📊 流程图状态</div>
+            <div class="card-body">
+                <div class="flow-diagram" id="flowDiagram"></div>
+            </div>
+        </div>
+
+        <!-- Approval History -->
+        <div class="card" id="historyCard" style="display:none;">
+            <div class="card-header">📝 审批意见列表</div>
+            <div class="card-body" id="historyBody">
+                <table class="history-table">
+                    <thead>
+                        <tr><th>审批时间</th><th>审批人</th><th>决策结果</th><th>审批意见</th></tr>
+                    </thead>
+                    <tbody id="historyBodyContent">
+                        <tr><td colspan="4" style="text-align:center;color:#999;padding:20px;">暂无审批记录</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Action Area -->
+        <div class="card" id="actionCard" style="display:none;">
+            <div class="card-header">✏️ 审批操作</div>
+            <div class="action-area">
+                <textarea id="commentInput" placeholder="请输入审批意见..."></textarea>
+                <div class="action-buttons" id="actionButtons">
+                    <!-- Buttons rendered dynamically -->
+                </div>
+            </div>
+        </div>
+
+        <!-- Task Info -->
+        <div id="taskInfo" style="display:none;">
+            <input type="hidden" id="currentTaskId" />
+            <input type="hidden" id="currentProcessId" />
+        </div>
+    </div>
+</div>
+
+<script>
+let loggedInRole = '';
+let currentProcessId = '';
+let pollTimer = null;
+
+// Role display names
+const ROLE_NAMES = { operations: '运营', supervisor: '主管', warehouse: '库管', manager: '经理' };
+const ROLE_BADGES = {
+    operations: 'badge-operations',
+    supervisor: 'badge-supervisor',
+    warehouse: 'badge-warehouse',
+    manager: 'badge-manager'
+};
+
+function login() {
+    const role = document.getElementById('roleSelect').value;
+    loggedInRole = role;
+
+    const btn = document.getElementById('loginBtn');
+    btn.textContent = '已登录 (' + ROLE_NAMES[role] + ')';
+    btn.classList.add('logged-in');
+
+    const badge = document.getElementById('roleBadge');
+    badge.textContent = '当前角色：' + ROLE_NAMES[role];
+    badge.className = 'role-badge ' + (ROLE_BADGES[role] || '');
+    badge.style.display = 'inline-block';
+
+    document.getElementById('welcomeScreen').style.display = 'none';
+    document.getElementById('processView').style.display = 'block';
+
+    // Show start card only for operations
+    document.getElementById('startCard').style.display = (role === 'operations') ? 'block' : 'none';
+
+    refresh();
+}
+
+function showToast(msg, type) {
+    const t = document.createElement('div');
+    t.className = 'toast toast-' + type;
+    t.textContent = msg;
+    document.body.appendChild(t);
+    setTimeout(() => t.remove(), 3000);
+}
+
+function startProcess() {
+    const btn = document.getElementById('startBtn');
+    btn.disabled = true;
+    btn.textContent = '提交中...';
+
+    fetch('/api/process/start', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+            title: '商品上线审批',
+            productName: 'iPhone 15 Pro 256G',
+            productDesc: '新型手机上市，五一节活动款',
+            productPrice: '5999'
+        })
+    })
+    .then(r => r.json())
+    .then(data => {
+        showToast('审批流程已发起！', 'success');
+        btn.disabled = false;
+        btn.textContent = '🚀 发起商品上线审批';
+        currentProcessId = data.processInstanceId;
+        renderProcess(data);
+    })
+    .catch(e => {
+        showToast('发起失败：' + e.message, 'error');
+        btn.disabled = false;
+        btn.textContent = '🚀 发起商品上线审批';
+    });
+}
+
+function refresh() {
+    // Find active tasks for current role
+    fetch('/api/tasks?role=' + loggedInRole)
+    .then(r => r.json())
+    .then(tasks => {
+        if (tasks.length > 0) {
+            // Get the first task's process
+            const task = tasks[0];
+            document.getElementById('currentTaskId').value = task.taskId;
+            currentProcessId = task.processInstanceId;
+            return fetch('/api/process/' + task.processInstanceId).then(r => r.json());
+        } else if (currentProcessId) {
+            // Still show existing process
+            return fetch('/api/process/' + currentProcessId).then(r => r.json());
+        } else {
+            // No process yet
+            hideAllCards();
+            document.getElementById('startCard').style.display = (loggedInRole === 'operations') ? 'block' : 'none';
+            if (loggedInRole !== 'operations') {
+                document.querySelector('#infoCard .card-header').textContent = '📋 暂无审批流程';
+                document.getElementById('infoCard').style.display = 'block';
+                document.getElementById('infoCard .card-body').innerHTML = '<div class="empty-state"><p>暂无待处理的审批</p></div>';
+            }
+            return null;
+        }
+    })
+    .then(data => {
+        if (data) renderProcess(data);
+    })
+    .catch(e => console.error('Refresh error:', e));
+}
+
+function renderProcess(data) {
+    const vars = data.variables || {};
+    const activeTasks = data.activeTasks || [];
+
+    // Set process ID
+    currentProcessId = data.processInstanceId || currentProcessId;
+
+    // Show info card
+    document.getElementById('infoCard').style.display = 'block';
+    document.getElementById('fieldTitle').value = vars.title || '商品上线审批';
+    document.getElementById('fieldName').value = vars.productName || 'iPhone 15 Pro 256G';
+    document.getElementById('fieldDesc').value = vars.productDesc || '新型手机上市，五一节活动款';
+    document.getElementById('fieldPrice').value = (vars.productPrice || '5999') + '元';
+
+    // Status bar
+    const statusBar = document.getElementById('statusBar');
+    statusBar.style.display = 'block';
+    const status = vars.status || '处理中';
+    statusBar.textContent = '当前状态：' + status;
+    statusBar.className = 'status-bar';
+
+    if (data.ended || data.running === false) {
+        // Check if approved or rejected
+        const history = data.approvalHistory || [];
+        const lastAction = history.length > 0 ? history[history.length - 1] : null;
+        if (lastAction && lastAction.action && lastAction.action.includes('拒绝')) {
+            statusBar.classList.add('status-rejected');
+        } else if (lastAction && (lastAction.action === '同意' || lastAction.action === '审批通过')) {
+            statusBar.classList.add('status-approved');
+        } else {
+            statusBar.classList.add('status-running');
+        }
+    } else {
+        statusBar.classList.add('status-running');
+    }
+
+    // Flow diagram
+    renderFlowDiagram(data);
+
+    // History
+    renderHistory(data.approvalHistory || []);
+
+    // Current tasks for this role
+    const myTasks = activeTasks.filter(t => t.assignee === loggedInRole);
+
+    const actionCard = document.getElementById('actionCard');
+    const taskInfo = document.getElementById('taskInfo');
+
+    if (myTasks.length > 0) {
+        actionCard.style.display = 'block';
+        document.getElementById('currentTaskId').value = myTasks[0].taskId;
+        renderActionButtons(myTasks[0]);
+
+        // Start auto-polling
+        startPolling();
+    } else {
+        actionCard.style.display = 'none';
+        // Check if process ended or waiting for other roles
+        if (data.ended || data.running === false) {
+            // Process is done
+        }
+
+        // If logged in as operations and no active task and process not ended for them
+        // They can only start, not approve
+    }
+}
+
+function renderFlowDiagram(data) {
+    const vars = data.variables || {};
+    const activeTasks = data.activeTasks || [];
+    const currentNodes = data.currentNodes || [];
+    const isEnded = data.ended || data.running === false;
+
+    const flowNodes = [
+        { id: 'start', label: '发起申请', key: 'start' },
+        { id: 'submitTask', label: '运营发布', key: 'submitTask' },
+        { id: 'supervisorTask', label: '主管审批', key: 'supervisorTask' },
+        { id: 'warehouseTask', label: '库管确认', key: 'warehouseTask', optional: true },
+        { id: 'managerTask', label: '经理审批', key: 'managerTask' },
+        { id: 'end', label: '审批完成', key: 'end' },
+    ];
+
+    // Check if 加签 was triggered
+    const countersign = vars.countersign === 'true';
+
+    let completedNodes = new Set();
+    let activeNodeIds = new Set(currentNodes);
+
+    // Determine completed nodes from history
+    const history = data.approvalHistory || [];
+    for (const entry of history) {
+        if (entry.role === '运营' && entry.action === '提交') completedNodes.add('submitTask');
+        if ((entry.role === '主管' && !entry.action.includes('复核')) && (entry.action === '同意' || entry.action.includes('加签'))) {
+            completedNodes.add('supervisorTask');
+        }
+        if (entry.role === '库管' || entry.action.includes('库存')) completedNodes.add('warehouseTask');
+        if (entry.role === '主管' && entry.action.includes('复核')) completedNodes.add('supervisorTask');
+        // manager task is completed when process ends
+    }
+
+    // Check if process ended
+    const isRejected = history.some(h => h.action && h.action.includes('拒绝'));
+    const isApproved = isEnded && !isRejected;
+
+    if (isEnded) {
+        if (isApproved) {
+            completedNodes.add('end');
+        } else {
+            // Mark current and end as rejected
+            activeNodeIds.clear();
+        }
+    }
+
+    const diagram = document.getElementById('flowDiagram');
+    diagram.innerHTML = '';
+
+    let visibleNodes = flowNodes.filter(n => !n.optional || countersign);
+
+    visibleNodes.forEach((node, idx) => {
+        const el = document.createElement('span');
+        el.className = 'flow-node';
+        el.textContent = node.label;
+
+        if (isEnded) {
+            if (node.key === 'end' && !isRejected) el.classList.add('completed');
+            else if (isRejected && node.key === 'end') el.classList.add('rejected');
+            else if (completedNodes.has(node.key)) el.classList.add('completed');
+            else el.classList.add('rejected');
+        } else if (activeNodeIds.has(node.key)) {
+            el.classList.add('active');
+        } else if (completedNodes.has(node.key)) {
+            el.classList.add('completed');
+        }
+
+        diagram.appendChild(el);
+
+        if (idx < visibleNodes.length - 1) {
+            const arrow = document.createElement('span');
+            arrow.className = 'flow-arrow';
+            arrow.textContent = ' → ';
+            diagram.appendChild(arrow);
+        }
+    });
+}
+
+function renderHistory(history) {
+    const tbody = document.getElementById('historyBodyContent');
+    if (!history || history.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;color:#999;padding:20px;">暂无审批记录</td></tr>';
+        return;
+    }
+
+    document.getElementById('historyCard').style.display = 'block';
+
+    tbody.innerHTML = history.map(entry => {
+        let actionClass = 'action-approve';
+        let actionText = entry.action || '';
+        if (actionText.includes('拒绝')) actionClass = 'action-reject';
+        else if (actionText.includes('加签') || actionText.includes('库存')) actionClass = 'action-addsign';
+
+        // Format time
+        const time = entry.time || '';
+        const timeShort = time.length > 19 ? time.substring(0, 19) : time;
+
+        return `<tr>
+            <td style="font-size:13px;color:#888;">${timeShort}</td>
+            <td>${entry.role || '-'}</td>
+            <td><span class="action-tag ${actionClass}">${actionText}</span></td>
+            <td>${entry.comment || '-'}</td>
+        </tr>`;
+    }).join('');
+}
+
+function renderActionButtons(task) {
+    const container = document.getElementById('actionButtons');
+    container.innerHTML = '';
+
+    // Check if this is a supervisor task (normal approval)
+    if (loggedInRole === 'supervisor') {
+        // Check if this is the "supervisorFinal" task (after warehouse)
+        // We can detect this by checking the task name
+        const isFinalTask = (task.taskName === '主管复核');
+
+        if (isFinalTask) {
+            // Supervisor final decision buttons
+            const approveBtn = document.createElement('button');
+            approveBtn.className = 'btn btn-approve';
+            approveBtn.textContent = '同意';
+            approveBtn.onclick = () => complete('supervisor_final_approve');
+
+            const rejectBtn = document.createElement('button');
+            rejectBtn.className = 'btn btn-reject';
+            rejectBtn.textContent = '拒绝';
+            rejectBtn.onclick = () => complete('supervisor_final_reject');
+
+            container.appendChild(approveBtn);
+            container.appendChild(rejectBtn);
+        } else {
+            // Normal supervisor approval (with addSign option)
+            const approveBtn = document.createElement('button');
+            approveBtn.className = 'btn btn-approve';
+            approveBtn.textContent = '同意';
+            approveBtn.onclick = () => complete('approve');
+
+            const rejectBtn = document.createElement('button');
+            rejectBtn.className = 'btn btn-reject';
+            rejectBtn.textContent = '拒绝';
+            rejectBtn.onclick = () => complete('reject');
+
+            const warehouseBtn = document.createElement('button');
+            warehouseBtn.className = 'btn btn-warehouse';
+            warehouseBtn.textContent = '确认库存';
+            warehouseBtn.onclick = () => complete('addSign');
+
+            container.appendChild(approveBtn);
+            container.appendChild(rejectBtn);
+            container.appendChild(warehouseBtn);
+        }
+    } else if (loggedInRole === 'warehouse') {
+        // Warehouse: confirm inventory only
+        const confirmBtn = document.createElement('button');
+        confirmBtn.className = 'btn btn-warehouse';
+        confirmBtn.textContent = '确认库存';
+        confirmBtn.onclick = () => complete('warehouse_confirm');
+
+        container.appendChild(confirmBtn);
+    } else if (loggedInRole === 'manager') {
+        // Manager: approve or reject
+        const approveBtn = document.createElement('button');
+        approveBtn.className = 'btn btn-approve';
+        approveBtn.textContent = '同意';
+        approveBtn.onclick = () => complete('approve');
+
+        const rejectBtn = document.createElement('button');
+        rejectBtn.className = 'btn btn-reject';
+        rejectBtn.textContent = '拒绝';
+        rejectBtn.onclick = () => complete('reject');
+
+        container.appendChild(approveBtn);
+        container.appendChild(rejectBtn);
+    }
+}
+
+function complete(action) {
+    const taskId = document.getElementById('currentTaskId').value;
+    const comment = document.getElementById('commentInput').value;
+
+    if (!taskId) {
+        showToast('没有待处理的任务', 'error');
+        return;
+    }
+
+    // For warehouse, require comment
+    if (loggedInRole === 'warehouse' && !comment) {
+        showToast('请输入库存确认意见', 'error');
+        return;
+    }
+
+    fetch('/api/tasks/' + taskId + '/complete', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+            role: loggedInRole,
+            action: action,
+            comment: comment
+        })
+    })
+    .then(r => r.json())
+    .then(data => {
+        const actionNames = {
+            approve: '同意',
+            reject: '拒绝',
+            addSign: '加签（询问库存）',
+            warehouse_confirm: '确认库存',
+            supervisor_final_approve: '同意（复核）',
+            supervisor_final_reject: '拒绝（复核）'
+        };
+        showToast('操作完成：' + (actionNames[action] || action), 'success');
+        document.getElementById('commentInput').value = '';
+        renderProcess(data);
+    })
+    .catch(e => showToast('操作失败：' + e.message, 'error'));
+}
+
+function hideAllCards() {
+    ['infoCard', 'flowCard', 'historyCard', 'actionCard', 'startCard'].forEach(id => {
+        document.getElementById(id).style.display = 'none';
+    });
+}
+
+// Auto refresh every 5 seconds
+function startPolling() {
+    if (pollTimer) clearInterval(pollTimer);
+    pollTimer = setInterval(() => {
+        if (currentProcessId) {
+            fetch('/api/process/' + currentProcessId)
+            .then(r => r.json())
+            .then(data => {
+                // Only update if current role has tasks or view changed
+                const hasMyTask = (data.activeTasks || []).some(t => t.assignee === loggedInRole);
+                if (hasMyTask || !data.running || document.getElementById('actionCard').style.display === 'block') {
+                    renderProcess(data);
+                }
+            })
+            .catch(() => {});
+        }
+    }, 5000);
+}
+
+// Start auto-refresh when page loads for any existing process
+document.addEventListener('DOMContentLoaded', () => {
+    // Initial poll will happen after login
+});
+</script>
+</body>
+</html>
